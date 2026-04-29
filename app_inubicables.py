@@ -215,6 +215,13 @@ section[data-testid="stSidebar"] {
     margin: 18px 0 14px;
 }
 
+/* ── ALTERNATIVA CARD CONTACTADA ── */
+.alt-card.contactado {
+    opacity: 0.35;
+    filter: grayscale(80%);
+}
+.alt-card.contactado .alt-name { text-decoration: line-through; }
+
 /* ── ALTERNATIVA CARD ── */
 .alt-card {
     background: #1a2332;
@@ -1018,9 +1025,9 @@ with tab_persona:
                 if len(rels_visual) == 0:
                     st.warning("⚠️ No se encontraron personas relacionadas con datos de contacto.")
                 else:
-                    # Mapeo a card_alternativa: necesitamos un dict tipo cruce row
-                    html = ""
-                    for _, r in rels_visual.iterrows():
+                    if '_contactados' not in st.session_state:
+                        st.session_state['_contactados'] = {}
+                    for rel_idx, (_, r) in enumerate(rels_visual.iterrows()):
                         prioridad = {
                             'MISMO APELLIDO + MISMA DIRECCION': 1,
                             'MISMO APELLIDO': 2,
@@ -1031,8 +1038,17 @@ with tab_persona:
                             'CELULAR PARA ENVIO': r['telefono_cel'] if r['telefono_cel'] else float('nan'),
                             'MAIL PARA ENVIO':    r['email1']       if r['email1']       else float('nan'),
                         }
-                        html += card_alternativa(alt_dict, prioridad)
-                    st.markdown(html, unsafe_allow_html=True)
+                        ck = f"ct_{p['CUIT FINAL']}_{rel_idx}"
+                        contactado = st.session_state['_contactados'].get(ck, False)
+                        card_html = card_alternativa(alt_dict, prioridad)
+                        if contactado:
+                            card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
+                        st.markdown(card_html, unsafe_allow_html=True)
+                        nuevo = st.checkbox(
+                            "📵 Contactado / No corresponde",
+                            key=ck, value=contactado
+                        )
+                        st.session_state['_contactados'][ck] = nuevo
 
                 # Botón para descargar Excel sólo de esta persona
                 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1111,14 +1127,24 @@ if inubicables is not None and tab1 is not None:
 
                     direccion = row.get('DIRECCION_NORM', None)
                     alts = buscar_alternativas(df_cruce_full, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
-                    html_alts = ""
-                    for p in [1, 2, 3]:
-                        for _, alt in alts[f'grupo{p}'].head(2).iterrows():
-                            html_alts += card_alternativa(alt, p)
-
-                    if html_alts:
-                        st.markdown(html_alts, unsafe_allow_html=True)
-                    else:
+                    if '_contactados' not in st.session_state:
+                        st.session_state['_contactados'] = {}
+                    hay_alts = False
+                    for p_num in [1, 2, 3]:
+                        for alt_idx, (_, alt) in enumerate(alts[f'grupo{p_num}'].head(2).iterrows()):
+                            hay_alts = True
+                            ck = f"cti_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
+                            contactado = st.session_state['_contactados'].get(ck, False)
+                            card_html = card_alternativa(alt, p_num)
+                            if contactado:
+                                card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
+                            st.markdown(card_html, unsafe_allow_html=True)
+                            nuevo = st.checkbox(
+                                "📵 Contactado / No corresponde",
+                                key=ck, value=contactado
+                            )
+                            st.session_state['_contactados'][ck] = nuevo
+                    if not hay_alts:
                         st.warning("⚠️ No se encontraron alternativas de contacto.")
 
     # ── TAB 2 — ESTADÍSTICAS ──
