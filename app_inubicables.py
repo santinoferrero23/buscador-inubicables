@@ -217,10 +217,18 @@ section[data-testid="stSidebar"] {
 
 /* ── ALTERNATIVA CARD CONTACTADA ── */
 .alt-card.contactado {
-    opacity: 0.35;
-    filter: grayscale(80%);
+    border-left-color: #4b5563 !important;
+    background: rgba(75,85,99,0.12) !important;
 }
-.alt-card.contactado .alt-name { text-decoration: line-through; }
+.alt-card.contactado .alt-name {
+    color: #6b7280 !important;
+    text-decoration: line-through;
+}
+.alt-card.contactado .alt-contact { color: #4b5563 !important; }
+.alt-card.contactado .alt-tag {
+    background: rgba(75,85,99,0.2) !important;
+    color: #6b7280 !important;
+}
 
 /* ── ALTERNATIVA CARD ── */
 .alt-card {
@@ -1043,8 +1051,6 @@ with tab_persona:
                         contactado = st.session_state['_contactados'].get(ck, False)
                         familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                         card_html = card_alternativa(alt_dict, prioridad)
-                        if contactado:
-                            card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                         st.markdown(card_html, unsafe_allow_html=True)
                         col_a, col_b = st.columns(2)
                         with col_a:
@@ -1142,8 +1148,6 @@ if inubicables is not None and tab1 is not None:
                             contactado = st.session_state['_contactados'].get(ck, False)
                             familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                             card_html = card_alternativa(alt, p_num)
-                            if contactado:
-                                card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                             st.markdown(card_html, unsafe_allow_html=True)
                             col_a, col_b = st.columns(2)
                             with col_a:
