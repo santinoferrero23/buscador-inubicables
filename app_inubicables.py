@@ -52,8 +52,16 @@ footer { visibility: hidden; }
 header { visibility: hidden; }
 [data-testid="stToolbar"] { display: none; }
 [data-testid="stDecoration"] { display: none; }
-[data-testid="collapsedControl"] { display: none !important; }
+/* Sidebar siempre visible, sin boton de colapsar */
+[data-testid="collapsedControl"]      { display: none !important; }
 [data-testid="stSidebarCollapseButton"] { display: none !important; }
+section[data-testid="stSidebar"] {
+    transform: translateX(0px) !important;
+    min-width: 21rem !important;
+    width: 21rem !important;
+    visibility: visible !important;
+    display: flex !important;
+}
 .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
 
 /* ── BLOQUE DE USUARIO EN SIDEBAR ── */
