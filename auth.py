@@ -39,17 +39,44 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
 # ============================================================
 
 def load_users() -> dict:
-    # 1) En Streamlit Cloud: usuarios definidos en st.secrets["users"]
+    # 1) Streamlit Cloud — usuarios definidos en st.secrets["users"]
     try:
-        if hasattr(st, "secrets") and "users" in st.secrets:
-            # st.secrets devuelve un AttrDict — convertir a dict normal
-            return {k: dict(v) for k, v in st.secrets["users"].items()}
+        users_section = st.secrets.get("users")
+        if users_section:
+            return {
+                str(k).lower(): dict(v) if hasattr(v, "items") else v
+                for k, v in users_section.items()
+            }
+    except (FileNotFoundError, AttributeError, KeyError):
+        pass
     except Exception:
         pass
-    # 2) Local: archivo users.json
+
+    # 2) Local — archivo users.json
     if USERS_FILE.exists():
         return json.loads(USERS_FILE.read_text(encoding="utf-8"))
     return {}
+
+
+def secrets_diagnostico() -> str:
+    """Devuelve un string con información de qué encontró en secrets.
+    Útil cuando el login falla por mala configuración."""
+    try:
+        s = st.secrets
+    except Exception as e:
+        return f"st.secrets no disponible: {e}"
+    try:
+        if not s:
+            return "st.secrets está vacío (no hay secrets configurados)"
+        keys = list(s.keys())
+        if "users" not in keys:
+            return f"No hay sección [users]. Claves encontradas: {keys}"
+        users = s["users"]
+        if not users:
+            return "Sección [users] está vacía"
+        return f"Usuarios encontrados en secrets: {list(users.keys())}"
+    except Exception as e:
+        return f"Error leyendo secrets: {e}"
 
 
 def save_users(users: dict) -> None:
@@ -201,10 +228,10 @@ def login_screen() -> dict | None:
                     st.error("Completá usuario y contraseña.")
                     return None
 
-                if not USERS_FILE.exists() or len(load_users()) == 0:
+                if len(load_users()) == 0:
                     st.error(
-                        "No hay usuarios creados. Pedile al administrador "
-                        "que ejecute `python crear_usuario.py`."
+                        "No hay usuarios configurados.\n\n"
+                        "**Diagnóstico:** " + secrets_diagnostico()
                     )
                     return None
 
