@@ -774,35 +774,11 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── Filtros (solo si hay cruce cargado) ──
+    # ── Resumen de datos ──
     if 'df_cruce' in st.session_state:
-        st.markdown("### 🔎 Filtros")
-
-        _df_all = st.session_state.df_cruce
-
-        # Municipalidad
-        _munis_disp = sorted(_df_all['MUNICIPALIDAD'].dropna().unique().tolist())
-        _muni_opts  = ['Todas'] + _munis_disp
-        _muni_prev  = st.session_state.get('_muni_filtro', 'Todas')
-        _muni_idx   = _muni_opts.index(_muni_prev) if _muni_prev in _muni_opts else 0
-        _muni_sel   = st.selectbox("🏙️ Municipalidad:", _muni_opts, index=_muni_idx)
-        st.session_state['_muni_filtro'] = _muni_sel
-
-        # Tipo de cuenta
-        _tipos_disp = sorted(_df_all['tipo_cuenta'].dropna().unique().tolist())
-        _tipo_prev  = st.session_state.get('_tipo_filtro', [])
-        _tipo_sel   = st.multiselect("📂 Tipo de cuenta:", _tipos_disp, default=_tipo_prev)
-        st.session_state['_tipo_filtro'] = _tipo_sel
-
-        st.markdown("---")
-
-        # ── Resumen de datos ──
-        df_c = _df_all
+        df_c = st.session_state.df_cruce
         df_i = st.session_state.get('df_inub')
-
-        _muni_label = _muni_sel if _muni_sel != 'Todas' else 'todas'
-        _n_cruce = len(df_c[df_c['MUNICIPALIDAD'] == _muni_sel]) if _muni_sel != 'Todas' else len(df_c)
-        st.markdown(f"**Objetos:** {_n_cruce:,} *(muni: {_muni_label})*")
+        st.markdown(f"**Objetos:** {len(df_c):,}")
         if df_i is not None:
             st.markdown(f"**Inubicables:** {len(df_i):,}")
             if len(df_c) > 0:
@@ -810,7 +786,6 @@ with st.sidebar:
                 st.progress(min(pct / 100, 1.0), text=f"{pct:.1f}% sobre base")
         else:
             st.caption("Modo búsqueda individual")
-
         st.markdown("---")
 
     # ── Configuración de archivos (expander) ──
@@ -876,17 +851,9 @@ if 'df_cruce' not in st.session_state:
         st.info("👈 Subí el archivo Excel de **detalle de objetos** desde el panel lateral y hacé clic en **Cargar esta base**.")
     st.stop()
 
-df_cruce_full = st.session_state.df_cruce          # sin filtrar, para búsqueda de relacionados
+df_cruce_full = st.session_state.df_cruce
+df_cruce      = df_cruce_full
 df_inub       = st.session_state.get('df_inub')   # puede ser None
-
-# ── Aplicar filtros de municipalidad y tipo de cuenta ──
-df_cruce = df_cruce_full.copy()
-_muni_filtro = st.session_state.get('_muni_filtro', 'Todas')
-_tipo_filtro = st.session_state.get('_tipo_filtro', [])
-if _muni_filtro != 'Todas':
-    df_cruce = df_cruce[df_cruce['MUNICIPALIDAD'] == _muni_filtro]
-if _tipo_filtro:
-    df_cruce = df_cruce[df_cruce['tipo_cuenta'].isin(_tipo_filtro)]
 
 df = df_cruce
 inubicables  = df_inub if df_inub is not None else None
@@ -937,15 +904,6 @@ else:
         '</div>'
     )
 st.markdown(cards_html, unsafe_allow_html=True)
-
-# ── Indicador de filtro activo ──
-_filtro_activo = []
-if _muni_filtro != 'Todas':
-    _filtro_activo.append(f"🏙️ **{_muni_filtro}**")
-if _tipo_filtro:
-    _filtro_activo.append(f"📂 {', '.join(_tipo_filtro)}")
-if _filtro_activo:
-    st.caption(f"Filtros activos: {' · '.join(_filtro_activo)} — mostrando {len(df_cruce):,} de {len(df_cruce_full):,} objetos")
 
 # ── Tabs ──
 if inubicables is not None:
