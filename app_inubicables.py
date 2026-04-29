@@ -1038,17 +1038,21 @@ with tab_persona:
                             'CELULAR PARA ENVIO': r['telefono_cel'] if r['telefono_cel'] else float('nan'),
                             'MAIL PARA ENVIO':    r['email1']       if r['email1']       else float('nan'),
                         }
-                        ck = f"ct_{p['CUIT FINAL']}_{rel_idx}"
+                        ck          = f"ct_{p['CUIT FINAL']}_{rel_idx}"
+                        ck_familiar = f"fam_{p['CUIT FINAL']}_{rel_idx}"
                         contactado = st.session_state['_contactados'].get(ck, False)
+                        familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                         card_html = card_alternativa(alt_dict, prioridad)
                         if contactado:
                             card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                         st.markdown(card_html, unsafe_allow_html=True)
-                        nuevo = st.checkbox(
-                            "📵 Contactado / No corresponde",
-                            key=ck, value=contactado
-                        )
-                        st.session_state['_contactados'][ck] = nuevo
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            nuevo = st.checkbox("📵 Contactado / No corresponde", key=ck, value=contactado)
+                            st.session_state['_contactados'][ck] = nuevo
+                        with col_b:
+                            nuevo_fam = st.checkbox("👨‍👩‍👧 Es familiar", key=ck_familiar, value=familiar)
+                            st.session_state['_contactados'][ck_familiar] = nuevo_fam
 
                 # Botón para descargar Excel sólo de esta persona
                 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1133,17 +1137,21 @@ if inubicables is not None and tab1 is not None:
                     for p_num in [1, 2, 3]:
                         for alt_idx, (_, alt) in enumerate(alts[f'grupo{p_num}'].head(2).iterrows()):
                             hay_alts = True
-                            ck = f"cti_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
+                            ck          = f"cti_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
+                            ck_familiar = f"fami_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
                             contactado = st.session_state['_contactados'].get(ck, False)
+                            familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                             card_html = card_alternativa(alt, p_num)
                             if contactado:
                                 card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                             st.markdown(card_html, unsafe_allow_html=True)
-                            nuevo = st.checkbox(
-                                "📵 Contactado / No corresponde",
-                                key=ck, value=contactado
-                            )
-                            st.session_state['_contactados'][ck] = nuevo
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                nuevo = st.checkbox("📵 Contactado / No corresponde", key=ck, value=contactado)
+                                st.session_state['_contactados'][ck] = nuevo
+                            with col_b:
+                                nuevo_fam = st.checkbox("👨‍👩‍👧 Es familiar", key=ck_familiar, value=familiar)
+                                st.session_state['_contactados'][ck_familiar] = nuevo_fam
                     if not hay_alts:
                         st.warning("⚠️ No se encontraron alternativas de contacto.")
 
