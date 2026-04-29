@@ -1,10 +1,11 @@
 # Configuración de Streamlit — Buscador de Inubicables
 
 [theme]
-primaryColor = "#2e6db4"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#f3f4f6"
-textColor = "#1f2937"
+base = "dark"
+primaryColor = "#4a90d9"
+backgroundColor = "#0f1419"
+secondaryBackgroundColor = "#1a3a5c"
+textColor = "#e5e7eb"
 font = "sans serif"
 
 [server]

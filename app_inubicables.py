@@ -149,32 +149,35 @@ header { visibility: hidden; }
 }
 .metric-card {
     flex: 1;
-    background: white;
+    background: #1a2332;
     border-radius: 12px;
     padding: 18px 22px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
-    border-top: 4px solid #2e6db4;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    border-top: 4px solid #4a90d9;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-.metric-card.red   { border-top-color: #dc2626; }
-.metric-card.green { border-top-color: #16a34a; }
-.metric-card.amber { border-top-color: #d97706; }
+.metric-card.red   { border-top-color: #ef4444; }
+.metric-card.green { border-top-color: #22c55e; }
+.metric-card.amber { border-top-color: #f59e0b; }
 .metric-label {
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #6b7280;
+    color: #9ca3af;
     margin-bottom: 7px;
 }
 .metric-value {
     font-size: 2rem;
     font-weight: 700;
-    color: #111827;
+    color: #f9fafb;
     line-height: 1;
 }
 .metric-sub {
     font-size: 0.73rem;
-    color: #9ca3af;
+    color: #6b7280;
     margin-top: 5px;
 }
 
@@ -182,24 +185,24 @@ header { visibility: hidden; }
 .section-title {
     font-size: 0.88rem;
     font-weight: 600;
-    color: #1a3a5c;
-    border-bottom: 2px solid #e5e7eb;
+    color: #93c5fd;
+    border-bottom: 2px solid rgba(147, 197, 253, 0.2);
     padding-bottom: 7px;
     margin: 18px 0 14px;
 }
 
 /* ── ALTERNATIVA CARD ── */
 .alt-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-left: 5px solid #2e6db4;
+    background: #1a2332;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 5px solid #4a90d9;
     border-radius: 8px;
     padding: 13px 17px;
     margin-bottom: 9px;
 }
-.alt-card.p1 { border-left-color: #16a34a; background: #f0fdf4; }
-.alt-card.p2 { border-left-color: #d97706; background: #fffbeb; }
-.alt-card.p3 { border-left-color: #dc2626; background: #fef2f2; }
+.alt-card.p1 { border-left-color: #22c55e; background: rgba(34, 197, 94, 0.08); }
+.alt-card.p2 { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+.alt-card.p3 { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
 .alt-tag {
     display: inline-block;
     padding: 2px 9px;
@@ -210,32 +213,33 @@ header { visibility: hidden; }
     letter-spacing: 0.05em;
     margin-bottom: 6px;
 }
-.alt-tag.p1 { background: #dcfce7; color: #15803d; }
-.alt-tag.p2 { background: #fef3c7; color: #b45309; }
-.alt-tag.p3 { background: #fee2e2; color: #b91c1c; }
-.alt-name { font-size: 0.9rem; font-weight: 600; color: #111827; }
-.alt-contact { font-size: 0.82rem; color: #4b5563; margin-top: 3px; }
+.alt-tag.p1 { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.alt-tag.p2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.alt-tag.p3 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.alt-name { font-size: 0.9rem; font-weight: 600; color: #f9fafb; }
+.alt-contact { font-size: 0.82rem; color: #d1d5db; margin-top: 3px; }
 
 /* ── TABS ── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 2px;
-    background: #f3f4f6;
+    background: #1a2332;
     border-radius: 9px;
     padding: 4px;
-    border: none !important;
+    border: 1px solid rgba(255,255,255,0.05) !important;
 }
 .stTabs [data-baseweb="tab"] {
     border-radius: 6px !important;
     font-weight: 500;
     font-size: 0.84rem;
-    color: #4b5563;
+    color: #9ca3af;
     padding: 7px 18px;
     border: none !important;
+    background: transparent !important;
 }
 .stTabs [aria-selected="true"] {
-    background: white !important;
-    color: #1a3a5c !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    background: #2e6db4 !important;
+    color: white !important;
+    box-shadow: 0 1px 4px rgba(46, 109, 180, 0.4) !important;
     font-weight: 600 !important;
 }
 .stTabs [data-baseweb="tab-highlight"] { display: none !important; }
@@ -296,10 +300,38 @@ section[data-testid="stSidebar"] .stProgress > div > div > div {
 .app-footer {
     text-align: center;
     font-size: 0.7rem;
-    color: #9ca3af;
+    color: #6b7280;
     margin-top: 50px;
     padding-top: 14px;
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ── EXPANDERS y otros bloques de Streamlit ── */
+[data-testid="stExpander"] {
+    background: #1a2332;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 10px !important;
+}
+[data-testid="stExpander"] summary {
+    color: #f9fafb !important;
+    font-weight: 500;
+}
+
+/* Inputs y selects */
+[data-baseweb="input"], [data-baseweb="select"] {
+    background: #1a2332 !important;
+}
+.stTextInput input, .stNumberInput input {
+    background: #1a2332 !important;
+    color: #f9fafb !important;
+    border-color: rgba(255,255,255,0.15) !important;
+}
+
+/* Dataframes */
+[data-testid="stDataFrame"] {
+    background: #1a2332;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
 }
 </style>
 """
