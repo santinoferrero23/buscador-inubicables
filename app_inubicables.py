@@ -52,6 +52,7 @@ footer { visibility: hidden; }
 header { visibility: hidden; }
 [data-testid="stToolbar"] { display: none; }
 [data-testid="stDecoration"] { display: none; }
+[data-testid="collapsedControl"] { display: none; }
 .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
 
 /* ── BLOQUE DE USUARIO EN SIDEBAR ── */
