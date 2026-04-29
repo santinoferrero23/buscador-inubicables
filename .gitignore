@@ -1,0 +1,35 @@
+# Datos sensibles — NO subir al repo
+users.json
+.streamlit/secrets.toml
+*.log
+lanzador.log
+
+# Datos de los Excel — confidenciales
+*.xlsx
+*.xls
+*.csv
+INUBICABLES_*
+Relacionados_*
+uploads/
+
+# Archivos generados por scripts locales (no necesarios en el repo)
+LANZAR_INUBICABLES.bat
+lanzar_inubicables.vbs
+_tmp_shortcut.ps1
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+
+# Editores
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+# Configuración de Streamlit — Buscador de Inubicables
+
+[theme]
+primaryColor = "#2e6db4"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#f3f4f6"
+textColor = "#1f2937"
+font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 200
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
