@@ -12,6 +12,11 @@ INUBICABLES_*
 Relacionados_*
 uploads/
 
+# Excepción: la carpeta bases/ se sube al repo para Streamlit Cloud
+!bases/
+!bases/*.xlsx
+!bases/*.xls
+
 # Archivos generados por scripts locales (no necesarios en el repo)
 LANZAR_INUBICABLES.bat
 lanzar_inubicables.vbs

@@ -13,7 +13,7 @@ from pathlib import Path
 import auth
 
 SERVER_CRUCE_PATH = Path(__file__).parent.parent / "uploads" / "B - DETALLE DE TODOS LOS OBJETOS.xlsx"
-BASES_DIR = Path(__file__).parent.parent / "bases"
+BASES_DIR = Path(__file__).parent / "bases"
 
 
 def listar_bases() -> list[Path]:
