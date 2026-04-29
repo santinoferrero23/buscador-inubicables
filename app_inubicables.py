@@ -804,19 +804,9 @@ with st.sidebar:
             label_visibility="collapsed", key="up_cruce"
         )
 
-        st.markdown("")
-        st.markdown("**📁 O usar rutas del servidor:**")
-        ruta_inub = st.text_input(
-            "Ruta inubicables:",
-            value="../uploads/INUBICABLES.xlsx",
-        )
-        ruta_cruce = st.text_input(
-            "Ruta base de cruce:",
-            value=str(SERVER_CRUCE_PATH),
-        )
-
-        st.markdown("")
         cargar = st.button("🔄 Cargar / Actualizar", use_container_width=True, type="primary")
+        ruta_inub  = None
+        ruta_cruce = None
 
     st.markdown("---")
     st.markdown(
