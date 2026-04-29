@@ -8,12 +8,33 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+import json
 from pathlib import Path
 
 import auth
 
-SERVER_CRUCE_PATH = Path(__file__).parent.parent / "uploads" / "B - DETALLE DE TODOS LOS OBJETOS.xlsx"
-BASES_DIR = Path(__file__).parent / "bases"
+SERVER_CRUCE_PATH  = Path(__file__).parent.parent / "uploads" / "B - DETALLE DE TODOS LOS OBJETOS.xlsx"
+BASES_DIR          = Path(__file__).parent / "bases"
+SEGUIMIENTO_FILE   = Path(__file__).parent / "seguimiento.json"
+
+
+def cargar_seguimiento() -> dict:
+    try:
+        if SEGUIMIENTO_FILE.exists():
+            return json.loads(SEGUIMIENTO_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+    return {}
+
+
+def guardar_seguimiento(data: dict) -> None:
+    try:
+        SEGUIMIENTO_FILE.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding='utf-8'
+        )
+    except Exception:
+        pass
 
 
 def listar_bases() -> list[Path]:
@@ -920,6 +941,10 @@ else:
     )
 st.markdown(cards_html, unsafe_allow_html=True)
 
+# ── Seguimiento persistente ──
+if '_contactados' not in st.session_state:
+    st.session_state['_contactados'] = cargar_seguimiento()
+
 # ── Tabs ──
 if inubicables is not None:
     tab_persona, tab1, tab2, tab3 = st.tabs([
@@ -1033,9 +1058,7 @@ with tab_persona:
                 if len(rels_visual) == 0:
                     st.warning("⚠️ No se encontraron personas relacionadas con datos de contacto.")
                 else:
-                    if '_contactados' not in st.session_state:
-                        st.session_state['_contactados'] = {}
-                    for rel_idx, (_, r) in enumerate(rels_visual.iterrows()):
+                    for _, r in rels_visual.iterrows():
                         prioridad = {
                             'MISMO APELLIDO + MISMA DIRECCION': 1,
                             'MISMO APELLIDO': 2,
@@ -1046,19 +1069,23 @@ with tab_persona:
                             'CELULAR PARA ENVIO': r['telefono_cel'] if r['telefono_cel'] else float('nan'),
                             'MAIL PARA ENVIO':    r['email1']       if r['email1']       else float('nan'),
                         }
-                        ck          = f"ct_{p['CUIT FINAL']}_{rel_idx}"
-                        ck_familiar = f"fam_{p['CUIT FINAL']}_{rel_idx}"
+                        ck          = f"ct_{p['CUIT FINAL']}_{r['cuit_relacionado']}"
+                        ck_familiar = f"fam_{p['CUIT FINAL']}_{r['cuit_relacionado']}"
                         contactado = st.session_state['_contactados'].get(ck, False)
                         familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                         card_html = card_alternativa(alt_dict, prioridad)
+                        if contactado:
+                            card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                         st.markdown(card_html, unsafe_allow_html=True)
                         col_a, col_b = st.columns(2)
                         with col_a:
                             nuevo = st.checkbox("📵 Contactado / No corresponde", key=ck, value=contactado)
-                            st.session_state['_contactados'][ck] = nuevo
                         with col_b:
                             nuevo_fam = st.checkbox("👨‍👩‍👧 Es familiar", key=ck_familiar, value=familiar)
+                        if nuevo != contactado or nuevo_fam != familiar:
+                            st.session_state['_contactados'][ck]          = nuevo
                             st.session_state['_contactados'][ck_familiar] = nuevo_fam
+                            guardar_seguimiento(st.session_state['_contactados'])
 
                 # Botón para descargar Excel sólo de esta persona
                 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1137,25 +1164,27 @@ if inubicables is not None and tab1 is not None:
 
                     direccion = row.get('DIRECCION_NORM', None)
                     alts = buscar_alternativas(df_cruce_full, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
-                    if '_contactados' not in st.session_state:
-                        st.session_state['_contactados'] = {}
                     hay_alts = False
                     for p_num in [1, 2, 3]:
-                        for alt_idx, (_, alt) in enumerate(alts[f'grupo{p_num}'].head(2).iterrows()):
+                        for _, alt in alts[f'grupo{p_num}'].head(2).iterrows():
                             hay_alts = True
-                            ck          = f"cti_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
-                            ck_familiar = f"fami_{row['CUIT FINAL']}_{p_num}_{alt_idx}"
+                            ck          = f"cti_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
+                            ck_familiar = f"fami_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
                             contactado = st.session_state['_contactados'].get(ck, False)
                             familiar   = st.session_state['_contactados'].get(ck_familiar, False)
                             card_html = card_alternativa(alt, p_num)
+                            if contactado:
+                                card_html = card_html.replace('class="alt-card', 'class="alt-card contactado', 1)
                             st.markdown(card_html, unsafe_allow_html=True)
                             col_a, col_b = st.columns(2)
                             with col_a:
                                 nuevo = st.checkbox("📵 Contactado / No corresponde", key=ck, value=contactado)
-                                st.session_state['_contactados'][ck] = nuevo
                             with col_b:
                                 nuevo_fam = st.checkbox("👨‍👩‍👧 Es familiar", key=ck_familiar, value=familiar)
+                            if nuevo != contactado or nuevo_fam != familiar:
+                                st.session_state['_contactados'][ck]          = nuevo
                                 st.session_state['_contactados'][ck_familiar] = nuevo_fam
+                                guardar_seguimiento(st.session_state['_contactados'])
                     if not hay_alts:
                         st.warning("⚠️ No se encontraron alternativas de contacto.")
 
