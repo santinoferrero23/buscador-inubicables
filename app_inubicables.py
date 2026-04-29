@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Inubicables | Procuraduría Fiscal",
     page_icon="🔍",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded",  # siempre abierto
     menu_items={
         "Get Help": None,
         "Report a bug": None,
@@ -52,7 +52,8 @@ footer { visibility: hidden; }
 header { visibility: hidden; }
 [data-testid="stToolbar"] { display: none; }
 [data-testid="stDecoration"] { display: none; }
-[data-testid="collapsedControl"] { display: none; }
+[data-testid="collapsedControl"] { display: none !important; }
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
 .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
 
 /* ── BLOQUE DE USUARIO EN SIDEBAR ── */
