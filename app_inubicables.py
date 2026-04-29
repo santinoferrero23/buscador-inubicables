@@ -8,8 +8,22 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+from pathlib import Path
 
 import auth
+
+SERVER_CRUCE_PATH = Path(__file__).parent.parent / "uploads" / "B - DETALLE DE TODOS LOS OBJETOS.xlsx"
+BASES_DIR = Path(__file__).parent.parent / "bases"
+
+
+def listar_bases() -> list[Path]:
+    """Devuelve los archivos Excel dentro de la carpeta bases/, ordenados por nombre."""
+    if not BASES_DIR.exists():
+        return []
+    return sorted(
+        [p for p in BASES_DIR.iterdir() if p.suffix.lower() in ('.xlsx', '.xls')],
+        key=lambda p: p.name.lower()
+    )
 
 st.set_page_config(
     page_title="Inubicables | Procuraduría Fiscal",
@@ -442,6 +456,14 @@ def _preparar_cruce(df):
     df['APELLIDO']       = df['DENOMINACION FINAL'].astype(str).str.split().str[0].str.upper()
     df['DIRECCION_NORM'] = df['DOMICILIO_CATASTRO'].astype(str).str.upper().str.strip()
     df['SIN_CONTACTO']   = (df['MAIL PARA ENVIO'].isna()) & (df['CELULAR PARA ENVIO'].isna())
+
+    def _extraer_muni(dom):
+        if pd.isna(dom):
+            return 'SIN DATO'
+        partes = str(dom).split(' - ')
+        return partes[1].strip() if len(partes) >= 2 else 'SIN DATO'
+
+    df['MUNICIPALIDAD'] = df['DOMICILIO_CATASTRO'].apply(_extraer_muni)
     return df
 
 
@@ -662,18 +684,30 @@ header_html = (
     '</div>'
     '</div>'
     '<div class="steps-row">'
-    '<div class="step"><div class="step-num">1</div><div class="step-text">Adjuntar Excel <b>DETALLADO de inubicables</b></div></div>'
-    '<div class="step"><div class="step-num">2</div><div class="step-text">Adjuntar <b>detalle total de objetos</b></div></div>'
-    '<div class="step"><div class="step-num">3</div><div class="step-text"><b>Procesar datos</b> (botón en la barra lateral)</div></div>'
-    '<div class="step"><div class="step-num">4</div><div class="step-text"><b>Generar relaciones</b> en la pestaña Lista completa</div></div>'
+    '<div class="step"><div class="step-num">1</div><div class="step-text"><b>Base cargada automáticamente</b> del servidor</div></div>'
+    '<div class="step"><div class="step-num">2</div><div class="step-text">Seleccionar <b>municipalidad</b> en el panel lateral</div></div>'
+    '<div class="step"><div class="step-num">3</div><div class="step-text">Cargar <b>inubicables</b> *(opcional — en «Cambiar archivos»)*</div></div>'
+    '<div class="step"><div class="step-num">4</div><div class="step-text"><b>Buscar o generar relaciones</b></div></div>'
     '</div>'
     '</div>'
 )
 st.markdown(header_html, unsafe_allow_html=True)
 
+# ── Auto-carga: si hay una sola base disponible, cargarla directamente ──
+_bases_disponibles = listar_bases()
+if 'df_cruce' not in st.session_state and len(_bases_disponibles) == 1:
+    with st.spinner(f"⏳ Cargando {_bases_disponibles[0].name}..."):
+        _, df_cruce_n = cargar_datos(None, str(_bases_disponibles[0]))
+        if df_cruce_n is not None:
+            st.session_state.df_cruce    = df_cruce_n
+            st.session_state.df_inub     = None
+            st.session_state._base_activa = _bases_disponibles[0].name
+            st.session_state._server_loaded = True
+    st.rerun()
+
 # ── Sidebar ──
 with st.sidebar:
-    # Bloque del usuario logueado
+    # ── Usuario logueado ──
     iniciales = "".join(p[0] for p in usuario_actual["name"].split()[:2]).upper() or "?"
     st.markdown(
         f'<div class="user-pill">'
@@ -688,54 +722,131 @@ with st.sidebar:
         auth.logout()
 
     st.markdown("---")
-    st.markdown("### ⚙️ Configuración")
+
+    # ── Selector de base de objetos ──
+    st.markdown("### 🗂️ Base de objetos")
+
+    _bases_servidor = listar_bases()   # archivos en bases/ (solo local)
+    _bases_subidas  = st.session_state.get('_bases_subidas', {})  # {nombre: bytes} (web)
+
+    # En web (sin carpeta bases/) mostrar uploader para subir bases
+    if not _bases_servidor:
+        _nuevo = st.file_uploader(
+            "📤 Subir base Excel:",
+            type=['xlsx', 'xls'],
+            key="up_base_nueva",
+        )
+        if _nuevo is not None:
+            _bases_subidas[_nuevo.name] = _nuevo.getvalue()
+            st.session_state['_bases_subidas'] = _bases_subidas
+
+    # Lista combinada: servidor + subidas
+    _opciones = (
+        [{'origen': 'server', 'nombre': p.name, 'path': str(p)} for p in _bases_servidor]
+        + [{'origen': 'upload', 'nombre': n} for n in _bases_subidas]
+    )
+
+    if _opciones:
+        _nombres     = [o['nombre'] for o in _opciones]
+        _base_prev   = st.session_state.get('_base_activa', _nombres[0])
+        _base_idx    = _nombres.index(_base_prev) if _base_prev in _nombres else 0
+        _base_sel    = st.selectbox("📁 Seleccionar archivo:", _nombres, index=_base_idx)
+        _sel_opt     = next(o for o in _opciones if o['nombre'] == _base_sel)
+        _cambio_base = _base_sel != st.session_state.get('_base_activa')
+
+        if _cambio_base or 'df_cruce' not in st.session_state:
+            if st.button("🔄 Cargar esta base", use_container_width=True, type="primary"):
+                with st.spinner(f"Cargando {_base_sel}..."):
+                    if _sel_opt['origen'] == 'server':
+                        _, df_cruce_n = cargar_datos(None, _sel_opt['path'])
+                    else:
+                        _, df_cruce_n = cargar_datos(None, io.BytesIO(_bases_subidas[_base_sel]))
+                    if df_cruce_n is not None:
+                        st.session_state.df_cruce        = df_cruce_n
+                        st.session_state.df_inub         = None
+                        st.session_state._base_activa    = _base_sel
+                        st.session_state._server_loaded  = True
+                        st.session_state['_muni_filtro'] = 'Todas'
+                        st.session_state['_tipo_filtro'] = []
+                st.rerun()
+        else:
+            st.caption(f"📡 Cargado: *{_base_sel}*")
+
     st.markdown("---")
 
-    st.markdown("**📄 Archivo de inubicables** *(opcional)*")
-    st.caption("Para procesar todos los inubicables en lote")
-    file_inub = st.file_uploader(
-        "file_inub", type=['xlsx', 'xls'],
-        label_visibility="collapsed", key="up_inub"
-    )
+    # ── Filtros (solo si hay cruce cargado) ──
+    if 'df_cruce' in st.session_state:
+        st.markdown("### 🔎 Filtros")
 
-    st.markdown("")
-    st.markdown("**🗂️ Detalle total de objetos** *(obligatorio)*")
-    st.caption("Base donde se buscan relacionados / contactos")
-    file_cruce = st.file_uploader(
-        "file_cruce", type=['xlsx', 'xls'],
-        label_visibility="collapsed", key="up_cruce"
-    )
+        _df_all = st.session_state.df_cruce
 
-    with st.expander("📁 O usar rutas del servidor"):
+        # Municipalidad
+        _munis_disp = sorted(_df_all['MUNICIPALIDAD'].dropna().unique().tolist())
+        _muni_opts  = ['Todas'] + _munis_disp
+        _muni_prev  = st.session_state.get('_muni_filtro', 'Todas')
+        _muni_idx   = _muni_opts.index(_muni_prev) if _muni_prev in _muni_opts else 0
+        _muni_sel   = st.selectbox("🏙️ Municipalidad:", _muni_opts, index=_muni_idx)
+        st.session_state['_muni_filtro'] = _muni_sel
+
+        # Tipo de cuenta
+        _tipos_disp = sorted(_df_all['tipo_cuenta'].dropna().unique().tolist())
+        _tipo_prev  = st.session_state.get('_tipo_filtro', [])
+        _tipo_sel   = st.multiselect("📂 Tipo de cuenta:", _tipos_disp, default=_tipo_prev)
+        st.session_state['_tipo_filtro'] = _tipo_sel
+
+        st.markdown("---")
+
+        # ── Resumen de datos ──
+        df_c = _df_all
+        df_i = st.session_state.get('df_inub')
+
+        _muni_label = _muni_sel if _muni_sel != 'Todas' else 'todas'
+        _n_cruce = len(df_c[df_c['MUNICIPALIDAD'] == _muni_sel]) if _muni_sel != 'Todas' else len(df_c)
+        st.markdown(f"**Objetos:** {_n_cruce:,} *(muni: {_muni_label})*")
+        if df_i is not None:
+            st.markdown(f"**Inubicables:** {len(df_i):,}")
+            if len(df_c) > 0:
+                pct = len(df_i) / len(df_c) * 100
+                st.progress(min(pct / 100, 1.0), text=f"{pct:.1f}% sobre base")
+        else:
+            st.caption("Modo búsqueda individual")
+
+        st.markdown("---")
+
+    # ── Configuración de archivos (expander) ──
+    with st.expander("⚙️ Cambiar archivos / Cargar inubicables"):
+        st.markdown("**📄 Archivo de inubicables** *(opcional)*")
+        st.caption("Para procesar todos los inubicables en lote")
+        file_inub = st.file_uploader(
+            "file_inub", type=['xlsx', 'xls'],
+            label_visibility="collapsed", key="up_inub"
+        )
+
+        st.markdown("")
+        st.markdown("**🗂️ Otra base de objetos** *(reemplaza la del servidor)*")
+        file_cruce = st.file_uploader(
+            "file_cruce", type=['xlsx', 'xls'],
+            label_visibility="collapsed", key="up_cruce"
+        )
+
+        st.markdown("")
+        st.markdown("**📁 O usar rutas del servidor:**")
         ruta_inub = st.text_input(
             "Ruta inubicables:",
             value="../uploads/INUBICABLES.xlsx",
         )
         ruta_cruce = st.text_input(
             "Ruta base de cruce:",
-            value="../uploads/B - DETALLE DE TODOS LOS OBJETOS.xlsx",
+            value=str(SERVER_CRUCE_PATH),
         )
 
-    st.markdown("")
-    cargar = st.button("🔍 Procesar datos", use_container_width=True, type="primary")
-
-    if 'df_cruce' in st.session_state:
-        df_c = st.session_state.df_cruce
-        df_i = st.session_state.get('df_inub')
-        st.markdown("---")
-        st.markdown(f"**Base de cruce:** {len(df_c):,}")
-        if df_i is not None:
-            st.markdown(f"**Inubicables:** {len(df_i):,}")
-            if len(df_c) > 0:
-                pct = len(df_i) / len(df_c) * 100
-                st.progress(min(pct / 100, 1.0), text=f"{pct:.1f}% sobre base de cruce")
-        else:
-            st.caption("Sólo cruce cargado — modo búsqueda individual")
+        st.markdown("")
+        cargar = st.button("🔄 Cargar / Actualizar", use_container_width=True, type="primary")
 
     st.markdown("---")
     st.markdown(
         f"<div style='color:rgba(255,255,255,0.35);font-size:0.68rem;'>"
-        f"v2.1 &nbsp;·&nbsp; {datetime.now().strftime('%d/%m/%Y')}</div>",
+        f"v2.3 &nbsp;·&nbsp; {datetime.now().strftime('%d/%m/%Y')}</div>",
         unsafe_allow_html=True
     )
 
@@ -758,15 +869,24 @@ if cargar:
 
 # Sin cruce, frenar
 if 'df_cruce' not in st.session_state:
-    st.info(
-        "👈 **Subí al menos el detalle total de objetos** desde la barra lateral "
-        "y hacé clic en **Procesar datos**.\n\n"
-        "Si querés procesar todos los inubicables en lote, también subí el archivo de inubicables."
-    )
+    _tiene_bases = listar_bases() or st.session_state.get('_bases_subidas')
+    if _tiene_bases:
+        st.info("👈 Seleccioná una base en el panel lateral y hacé clic en **Cargar esta base**.")
+    else:
+        st.info("👈 Subí el archivo Excel de **detalle de objetos** desde el panel lateral y hacé clic en **Cargar esta base**.")
     st.stop()
 
-df_cruce = st.session_state.df_cruce
-df_inub  = st.session_state.get('df_inub')   # puede ser None
+df_cruce_full = st.session_state.df_cruce          # sin filtrar, para búsqueda de relacionados
+df_inub       = st.session_state.get('df_inub')   # puede ser None
+
+# ── Aplicar filtros de municipalidad y tipo de cuenta ──
+df_cruce = df_cruce_full.copy()
+_muni_filtro = st.session_state.get('_muni_filtro', 'Todas')
+_tipo_filtro = st.session_state.get('_tipo_filtro', [])
+if _muni_filtro != 'Todas':
+    df_cruce = df_cruce[df_cruce['MUNICIPALIDAD'] == _muni_filtro]
+if _tipo_filtro:
+    df_cruce = df_cruce[df_cruce['tipo_cuenta'].isin(_tipo_filtro)]
 
 df = df_cruce
 inubicables  = df_inub if df_inub is not None else None
@@ -817,6 +937,15 @@ else:
         '</div>'
     )
 st.markdown(cards_html, unsafe_allow_html=True)
+
+# ── Indicador de filtro activo ──
+_filtro_activo = []
+if _muni_filtro != 'Todas':
+    _filtro_activo.append(f"🏙️ **{_muni_filtro}**")
+if _tipo_filtro:
+    _filtro_activo.append(f"📂 {', '.join(_tipo_filtro)}")
+if _filtro_activo:
+    st.caption(f"Filtros activos: {' · '.join(_filtro_activo)} — mostrando {len(df_cruce):,} de {len(df_cruce_full):,} objetos")
 
 # ── Tabs ──
 if inubicables is not None:
@@ -924,7 +1053,7 @@ with tab_persona:
                     'OBJETOS_TXT':                 '',
                 }])
 
-                rels = generar_relacionados(inu_sint, df_cruce, max_apellido=15, max_direccion=15)
+                rels = generar_relacionados(inu_sint, df_cruce_full, max_apellido=15, max_direccion=15)
                 # Sacar las filas "MISMO CONTRIBUYENTE" y "SIN RELACIONADOS" para el visual
                 rels_visual = rels[~rels['tipo_relacion_ia'].isin(['MISMO CONTRIBUYENTE', 'SIN RELACIONADOS'])]
 
@@ -1023,7 +1152,7 @@ if inubicables is not None and tab1 is not None:
                     )
 
                     direccion = row.get('DIRECCION_NORM', None)
-                    alts = buscar_alternativas(df, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
+                    alts = buscar_alternativas(df_cruce_full, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
                     html_alts = ""
                     for p in [1, 2, 3]:
                         for _, alt in alts[f'grupo{p}'].head(2).iterrows():
@@ -1118,7 +1247,7 @@ if inubicables is not None and tab1 is not None:
         with col_g:
             if st.button("🔍 Generar relacionados", type="primary", use_container_width=True):
                 with st.spinner(f"Procesando {len(resultado):,} inubicables..."):
-                    st.session_state.relacionados = generar_relacionados(resultado, df_cruce)
+                    st.session_state.relacionados = generar_relacionados(resultado, df_cruce_full)
                 st.success(f"✅ Se generaron {len(st.session_state.relacionados):,} filas de relaciones.")
 
         with col_d:
