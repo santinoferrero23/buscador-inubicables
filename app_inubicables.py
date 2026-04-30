@@ -1058,7 +1058,12 @@ with tab_persona:
                 if len(rels_visual) == 0:
                     st.warning("⚠️ No se encontraron personas relacionadas con datos de contacto.")
                 else:
+                    _vistos_p = set()
                     for _, r in rels_visual.iterrows():
+                        ck = f"ct_{p['CUIT FINAL']}_{r['cuit_relacionado']}"
+                        if ck in _vistos_p:
+                            continue
+                        _vistos_p.add(ck)
                         prioridad = {
                             'MISMO APELLIDO + MISMA DIRECCION': 1,
                             'MISMO APELLIDO': 2,
@@ -1069,7 +1074,6 @@ with tab_persona:
                             'CELULAR PARA ENVIO': r['telefono_cel'] if r['telefono_cel'] else float('nan'),
                             'MAIL PARA ENVIO':    r['email1']       if r['email1']       else float('nan'),
                         }
-                        ck          = f"ct_{p['CUIT FINAL']}_{r['cuit_relacionado']}"
                         ck_familiar = f"fam_{p['CUIT FINAL']}_{r['cuit_relacionado']}"
                         contactado = st.session_state['_contactados'].get(ck, False)
                         familiar   = st.session_state['_contactados'].get(ck_familiar, False)
@@ -1165,10 +1169,14 @@ if inubicables is not None and tab1 is not None:
                     direccion = row.get('DIRECCION_NORM', None)
                     alts = buscar_alternativas(df_cruce_full, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
                     hay_alts = False
+                    _vistos_t1 = set()
                     for p_num in [1, 2, 3]:
                         for _, alt in alts[f'grupo{p_num}'].head(2).iterrows():
+                            ck = f"cti_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
+                            if ck in _vistos_t1:
+                                continue
+                            _vistos_t1.add(ck)
                             hay_alts = True
-                            ck          = f"cti_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
                             ck_familiar = f"fami_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
                             contactado = st.session_state['_contactados'].get(ck, False)
                             familiar   = st.session_state['_contactados'].get(ck_familiar, False)
