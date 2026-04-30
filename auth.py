@@ -203,7 +203,7 @@ def login_screen() -> dict | None:
             f'<div class="login-wrapper"><div class="login-card">'
             f'<div class="login-logo">{LOGIN_LOGO}</div>'
             f'<h2>Buscador de Inubicables</h2>'
-            f'<p class="subtitle">Procuraduría Fiscal</p>'
+            f'<p class="subtitle">Procuración Fiscal</p>'
             f'</div></div>',
             unsafe_allow_html=True
         )

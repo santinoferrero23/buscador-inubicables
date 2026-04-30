@@ -47,14 +47,14 @@ def listar_bases() -> list[Path]:
     )
 
 st.set_page_config(
-    page_title="Inubicables | Procuraduría Fiscal",
+    page_title="Inubicables | Procuración Fiscal",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded",  # siempre abierto
     menu_items={
         "Get Help": None,
         "Report a bug": None,
-        "About": "Buscador de Inubicables — Procuraduría Fiscal\nUso interno",
+        "About": "Buscador de Inubicables — Procuración Fiscal\nUso interno",
     },
 )
 
@@ -726,7 +726,7 @@ header_html = (
     f'{LOGO_SVG}'
     '<div class="app-header-text">'
     '<h1>Buscador de Inubicables</h1>'
-    '<p>Procuraduría Fiscal &nbsp;·&nbsp; Sistema de gestión de contactos &nbsp;·&nbsp; Uso interno</p>'
+    '<p>Procuración Fiscal &nbsp;·&nbsp; Sistema de gestión de contactos &nbsp;·&nbsp; Uso interno</p>'
     '</div>'
     '</div>'
     '<div class="steps-row">'
@@ -1306,7 +1306,7 @@ if inubicables is not None and tab1 is not None:
 # ── Footer ──
 st.markdown(
     f'<div class="app-footer">'
-    f'Procuraduría Fiscal &nbsp;·&nbsp; Sistema de gestión de inubicables &nbsp;·&nbsp; Uso interno'
+    f'Procuración Fiscal &nbsp;·&nbsp; Sistema de gestión de inubicables &nbsp;·&nbsp; Uso interno'
     f'<br>Sesión: <b>{usuario_actual["name"]}</b> &nbsp;·&nbsp; '
     f'v2.2 &nbsp;·&nbsp; {datetime.now().strftime("%d/%m/%Y %H:%M")}'
     f'</div>',
