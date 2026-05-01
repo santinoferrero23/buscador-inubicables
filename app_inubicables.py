@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 import io
 import json
+import re
 from pathlib import Path
 
 import auth
@@ -440,6 +441,8 @@ COLS_CRUCE = {
     'TEL_FIJO':     (False, ['TELEFONO FIJO', 'TEL FIJO', 'FIJO', 'TELEFONO_FIJO']),
     'EMAIL2':       (False, ['MAIL 2', 'EMAIL 2', 'MAIL SECUNDARIO', 'CORREO 2']),
     'TIPO_VINCULO': (False, ['TIPO VINCULO', 'TIPO DE VINCULO', 'VINCULO']),
+    'DESIGNACION':  (False, ['DESIGNACION_OFICIAL', 'DESIGNACION OFICIAL', 'DESIGNACION',
+                             'DESIGN_OFICIAL', 'MZA LOTE', 'MANZANA LOTE']),
 }
 
 
@@ -477,6 +480,21 @@ def _preparar_inub(df):
     return df
 
 
+def _extraer_mza_lte(val):
+    """Normaliza DESIGNACION_OFICIAL → 'MZA_LTE' (ej: '14_5').
+    Soporta formatos: MZA14 LTE5, MANZANA 14 LOTE 05, M14-L5, etc.
+    Retorna None si no puede parsear ambos números.
+    """
+    if pd.isna(val) or str(val).strip() in ('', 'nan', 'NaN', 'NONE'):
+        return None
+    s = str(val).upper()
+    mza = re.search(r'M(?:ANZANA|ANZ|ZA|Z)\.?\s*[:\-]?\s*0*(\d+)', s)
+    lte = re.search(r'L(?:OTE|OT|TE|T)\.?\s*[:\-]?\s*0*(\d+)', s)
+    if mza and lte:
+        return f"{mza.group(1)}_{lte.group(1)}"
+    return None
+
+
 def _preparar_cruce(df):
     df = df.copy()
     m = _mapear(df, COLS_CRUCE)
@@ -493,6 +511,7 @@ def _preparar_cruce(df):
     if 'TEL_FIJO'     in m: rename[m['TEL_FIJO']]     = 'telefono_fijo'
     if 'EMAIL2'       in m: rename[m['EMAIL2']]       = 'email2'
     if 'TIPO_VINCULO' in m: rename[m['TIPO_VINCULO']] = 'tipo_vinculo'
+    if 'DESIGNACION'  in m: rename[m['DESIGNACION']]  = 'DESIGNACION_OFICIAL'
     df = df.rename(columns=rename)
 
     if 'Deuda Corriente Actualizada' not in df.columns: df['Deuda Corriente Actualizada'] = 0
@@ -502,6 +521,12 @@ def _preparar_cruce(df):
     df['APELLIDO']       = df['DENOMINACION FINAL'].astype(str).str.split().str[0].str.upper()
     df['DIRECCION_NORM'] = df['DOMICILIO_CATASTRO'].astype(str).str.upper().str.strip()
     df['SIN_CONTACTO']   = (df['MAIL PARA ENVIO'].isna()) & (df['CELULAR PARA ENVIO'].isna())
+
+    # Manzana/lote — más confiable que la dirección textual
+    if 'DESIGNACION_OFICIAL' in df.columns:
+        df['MZA_LTE_KEY'] = df['DESIGNACION_OFICIAL'].apply(_extraer_mza_lte)
+    else:
+        df['MZA_LTE_KEY'] = None
 
     def _extraer_muni(dom):
         if pd.isna(dom):
@@ -542,28 +567,33 @@ def cargar_datos(archivo_inub, archivo_cruce):
         st.warning(f"⚠️ Problema con el archivo de inubicables:\n\n{e}\nSe carga sólo la base de cruce.")
         return None, df_cruce
 
-    # Enriquecer con dirección desde cruce
-    enriq = (df_cruce[['CUIT FINAL', 'DOMICILIO_CATASTRO', 'DIRECCION_NORM']]
-             .drop_duplicates('CUIT FINAL'))
+    # Enriquecer con dirección y manzana/lote desde cruce
+    enriq_cols = ['CUIT FINAL', 'DOMICILIO_CATASTRO', 'DIRECCION_NORM', 'MZA_LTE_KEY']
+    enriq = (df_cruce[enriq_cols].drop_duplicates('CUIT FINAL'))
     df_inub = df_inub.merge(enriq, on='CUIT FINAL', how='left')
 
     return df_inub, df_cruce
 
-def buscar_alternativas(df, apellido, direccion):
-    grupo1 = df[
-        (df['APELLIDO'] == apellido) &
-        (df['DIRECCION_NORM'] == direccion) &
-        ((df['MAIL PARA ENVIO'].notna()) | (df['CELULAR PARA ENVIO'].notna()))
-    ]
-    grupo2 = df[
-        (df['APELLIDO'] == apellido) &
-        ((df['MAIL PARA ENVIO'].notna()) | (df['CELULAR PARA ENVIO'].notna()))
-    ]
-    grupo3 = df[
-        (df['DIRECCION_NORM'] == direccion) &
-        ((df['MAIL PARA ENVIO'].notna()) | (df['CELULAR PARA ENVIO'].notna()))
-    ]
-    return {'grupo1': grupo1, 'grupo2': grupo2, 'grupo3': grupo3}
+def buscar_alternativas(df, apellido, direccion, mza_lte=None):
+    tiene_contacto = (df['MAIL PARA ENVIO'].notna()) | (df['CELULAR PARA ENVIO'].notna())
+    # grupo1: mismo apellido + misma dirección
+    grupo1 = df[tiene_contacto & (df['APELLIDO'] == apellido) & (df['DIRECCION_NORM'] == direccion)]
+    # grupo1b: mismo apellido + misma manzana/lote
+    if mza_lte and 'MZA_LTE_KEY' in df.columns:
+        grupo1b = df[tiene_contacto & (df['APELLIDO'] == apellido) & (df['MZA_LTE_KEY'] == mza_lte)]
+    else:
+        grupo1b = df.head(0)
+    # grupo2: mismo apellido (cualquier ubicación)
+    grupo2 = df[tiene_contacto & (df['APELLIDO'] == apellido)]
+    # grupo3: misma dirección (otro apellido)
+    grupo3 = df[tiene_contacto & (df['DIRECCION_NORM'] == direccion)]
+    # grupo4: misma manzana/lote (otro apellido)
+    if mza_lte and 'MZA_LTE_KEY' in df.columns:
+        grupo4 = df[tiene_contacto & (df['MZA_LTE_KEY'] == mza_lte)]
+    else:
+        grupo4 = df.head(0)
+    return {'grupo1': grupo1, 'grupo1b': grupo1b, 'grupo2': grupo2,
+            'grupo3': grupo3, 'grupo4': grupo4}
 
 COLUMNAS_EXPORT = [
     'inubicable_nombre', 'inubicable_cuit', 'inubicable_monto', 'inubicable_objetos',
@@ -658,7 +688,26 @@ def generar_relacionados(df_inub, df_cruce, max_apellido=10, max_direccion=10):
                     f"Apellido '{apellido}' y domicilio idénticos al del inubicable."
                 ))
 
-        # 3. MISMO APELLIDO (otra dirección)
+        # 3. MISMO APELLIDO + MISMA MANZANA/LOTE
+        mza_lte_inu = inu.get('MZA_LTE_KEY', None)
+        tiene_mza   = pd.notna(mza_lte_inu) and mza_lte_inu and \
+                      'MZA_LTE_KEY' in cruce_con_contacto.columns
+        if tiene_mza:
+            mismo_ap_mza = cruce_con_contacto[
+                (cruce_con_contacto['APELLIDO'] == apellido) &
+                (cruce_con_contacto['MZA_LTE_KEY'] == mza_lte_inu) &
+                (cruce_con_contacto['CUIT FINAL'] != cuit_inu) &
+                (~cruce_con_contacto['CUIT FINAL'].isin(encontrados_cuits))
+            ]
+            for _, r in mismo_ap_mza.iterrows():
+                encontrados_cuits.add(r['CUIT FINAL'])
+                filas.append(_fila_relacion(
+                    inu, r, 'MISMO APELLIDO + MISMA MZA/LTE', 0.85,
+                    'Apellido y manzana/lote coinciden — probable familiar en el mismo predio',
+                    f"Apellido '{apellido}' y designación catastral idénticos al del inubicable."
+                ))
+
+        # 4. MISMO APELLIDO (otra dirección/manzana)
         mismo_ap = cruce_con_contacto[
             (cruce_con_contacto['APELLIDO'] == apellido) &
             (cruce_con_contacto['CUIT FINAL'] != cuit_inu) &
@@ -672,7 +721,23 @@ def generar_relacionados(df_inub, df_cruce, max_apellido=10, max_direccion=10):
                 f"Comparte apellido '{apellido}' — posible vínculo familiar."
             ))
 
-        # 4. MISMA DIRECCIÓN (otro apellido)
+        # 5. MISMA MANZANA/LOTE (distinto apellido)
+        if tiene_mza:
+            misma_mza = cruce_con_contacto[
+                (cruce_con_contacto['MZA_LTE_KEY'] == mza_lte_inu) &
+                (cruce_con_contacto['APELLIDO'] != apellido) &
+                (cruce_con_contacto['CUIT FINAL'] != cuit_inu) &
+                (~cruce_con_contacto['CUIT FINAL'].isin(encontrados_cuits))
+            ].head(max_direccion)
+            for _, r in misma_mza.iterrows():
+                encontrados_cuits.add(r['CUIT FINAL'])
+                filas.append(_fila_relacion(
+                    inu, r, 'MISMA MZA/LTE', 0.65,
+                    'Misma manzana/lote — propietario o lindero en el mismo predio',
+                    f"Registrado en la misma manzana/lote catastral que el inubicable."
+                ))
+
+        # 6. MISMA DIRECCIÓN textual (otro apellido, sin match previo)
         if pd.notna(direccion) and direccion:
             misma_dir = cruce_con_contacto[
                 (cruce_con_contacto['DIRECCION_NORM'] == direccion) &
@@ -698,8 +763,10 @@ def generar_relacionados(df_inub, df_cruce, max_apellido=10, max_direccion=10):
 def card_alternativa(alt, prioridad):
     labels = {
         1: ("p1", "Mismo apellido + misma dirección"),
-        2: ("p2", "Mismo apellido — probable familiar"),
-        3: ("p3", "Misma dirección — vecino / colindante"),
+        2: ("p1", "Mismo apellido + misma manzana/lote"),
+        3: ("p2", "Mismo apellido — probable familiar"),
+        4: ("p3", "Misma manzana/lote — propietario / lindero"),
+        5: ("p3", "Misma dirección — vecino / colindante"),
     }
     cls, titulo = labels[prioridad]
     tel  = f"📱 {alt['CELULAR PARA ENVIO']}" if pd.notna(alt['CELULAR PARA ENVIO']) else ""
@@ -1066,9 +1133,11 @@ with tab_persona:
                         _vistos_p.add(ck)
                         prioridad = {
                             'MISMO APELLIDO + MISMA DIRECCION': 1,
-                            'MISMO APELLIDO': 2,
-                            'MISMA DIRECCION': 3,
-                        }.get(r['tipo_relacion_ia'], 2)
+                            'MISMO APELLIDO + MISMA MZA/LTE':   2,
+                            'MISMO APELLIDO':                   3,
+                            'MISMA MZA/LTE':                    4,
+                            'MISMA DIRECCION':                  5,
+                        }.get(r['tipo_relacion_ia'], 3)
                         alt_dict = {
                             'DENOMINACION FINAL': r['nombre_relacionado'],
                             'CELULAR PARA ENVIO': r['telefono_cel'] if r['telefono_cel'] else float('nan'),
@@ -1167,11 +1236,25 @@ if inubicables is not None and tab1 is not None:
                     )
 
                     direccion = row.get('DIRECCION_NORM', None)
-                    alts = buscar_alternativas(df_cruce_full, row['APELLIDO'], direccion if pd.notna(direccion) else "___NO_MATCH___")
+                    mza_lte   = row.get('MZA_LTE_KEY', None)
+                    alts = buscar_alternativas(
+                        df_cruce_full,
+                        row['APELLIDO'],
+                        direccion if pd.notna(direccion) else "___NO_MATCH___",
+                        mza_lte   if pd.notna(mza_lte)  else None,
+                    )
+                    # Mapeo grupo → prioridad de tarjeta
+                    _grupos_prioridad = [
+                        ('grupo1',  1),
+                        ('grupo1b', 2),
+                        ('grupo2',  3),
+                        ('grupo4',  4),
+                        ('grupo3',  5),
+                    ]
                     hay_alts = False
                     _vistos_t1 = set()
-                    for p_num in [1, 2, 3]:
-                        for _, alt in alts[f'grupo{p_num}'].head(2).iterrows():
+                    for grupo_key, p_num in _grupos_prioridad:
+                        for _, alt in alts[grupo_key].head(2).iterrows():
                             ck = f"cti_{row['CUIT FINAL']}_{alt['CUIT FINAL']}"
                             if ck in _vistos_t1:
                                 continue
