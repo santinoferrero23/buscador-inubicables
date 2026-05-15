@@ -16,6 +16,9 @@ uploads/
 !bases/
 !bases/*.xlsx
 !bases/*.xls
+!bases/*/
+!bases/*/*.xlsx
+!bases/*/*.xls
 
 # Archivos generados por scripts locales (no necesarios en el repo)
 LANZAR_INUBICABLES.bat

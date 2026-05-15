@@ -38,12 +38,22 @@ def guardar_seguimiento(data: dict) -> None:
         pass
 
 
-def listar_bases() -> list[Path]:
-    """Devuelve los archivos Excel dentro de la carpeta bases/, ordenados por nombre."""
+def listar_meses() -> list[str]:
+    """Devuelve las subcarpetas de bases/ (meses disponibles), ordenadas."""
     if not BASES_DIR.exists():
         return []
+    return sorted([d.name for d in BASES_DIR.iterdir() if d.is_dir()])
+
+
+def listar_bases(mes: str | None = None) -> list[Path]:
+    """Devuelve los archivos Excel dentro de bases/[mes]/ (o bases/ si no hay mes), ordenados."""
+    if not BASES_DIR.exists():
+        return []
+    target = BASES_DIR / mes if mes else BASES_DIR
+    if not target.exists():
+        return []
     return sorted(
-        [p for p in BASES_DIR.iterdir() if p.suffix.lower() in ('.xlsx', '.xls')],
+        [p for p in target.iterdir() if p.suffix.lower() in ('.xlsx', '.xls')],
         key=lambda p: p.name.lower()
     )
 
@@ -859,8 +869,10 @@ header_html = (
 )
 st.markdown(header_html, unsafe_allow_html=True)
 
-# ── Auto-carga: si hay una sola base disponible, cargarla directamente ──
-_bases_disponibles = listar_bases()
+# ── Auto-carga: si hay una sola base disponible en el mes activo, cargarla directamente ──
+_meses_disp = listar_meses()
+_mes_activo_auto = st.session_state.get('_mes_activo', _meses_disp[-1] if _meses_disp else None)
+_bases_disponibles = listar_bases(_mes_activo_auto) if _mes_activo_auto else listar_bases()
 if 'df_cruce' not in st.session_state and len(_bases_disponibles) == 1:
     with st.spinner(f"⏳ Cargando {_bases_disponibles[0].name}..."):
         _, df_cruce_n = cargar_datos(None, str(_bases_disponibles[0]))
@@ -892,7 +904,18 @@ with st.sidebar:
     # ── Selector de base de objetos ──
     st.markdown("### 🗂️ Base de objetos")
 
-    _bases_servidor = listar_bases()   # archivos en bases/ (solo local)
+    _meses_disp = listar_meses()
+    if _meses_disp:
+        _mes_prev = st.session_state.get('_mes_activo', _meses_disp[-1])
+        _mes_idx  = _meses_disp.index(_mes_prev) if _mes_prev in _meses_disp else len(_meses_disp) - 1
+        _mes_sel  = st.selectbox("📅 Mes:", _meses_disp, index=_mes_idx)
+        if _mes_sel != st.session_state.get('_mes_activo'):
+            st.session_state['_mes_activo'] = _mes_sel
+            st.session_state.pop('_base_activa', None)
+        _bases_servidor = listar_bases(_mes_sel)
+    else:
+        _bases_servidor = listar_bases()   # fallback: archivos sueltos en bases/
+
     _bases_subidas  = st.session_state.get('_bases_subidas', {})  # {nombre: bytes} (web)
 
     # En web (sin carpeta bases/) mostrar uploader para subir bases
